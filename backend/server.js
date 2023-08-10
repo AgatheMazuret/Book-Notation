@@ -22,7 +22,7 @@ const normalizePort = val => {
   return false;
 };
 
-// Récupérer le port d'écoute à partir des variables d'environnement ou utiliser le port 3000 par défaut
+// Récupérer le port d'écoute à partir des variables d'environnement ou utiliser le port 4000 par défaut
 const port = normalizePort(process.env.PORT || '4000');
 
 // Définir le port d'écoute de l'application express

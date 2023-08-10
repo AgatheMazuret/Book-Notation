@@ -2,86 +2,87 @@
 const Book = require("../models/Book");
 const fs = require("fs");
 
-// Fonction pour créer un nouvel objet "object"
+// Fonction pour créer un nouvel book "book"
 exports.createBook = (req, res, next) => {
-  console.log(req.body.book);
 
-  // Analyser le corps de la requête pour extraire l'objet "object"
+  // Analyser le corps de la requête pour extraire le book "book"
   const bookObject = JSON.parse(req.body.book);
 
-  // Supprimer les propriétés _id et _userId de l'objet "object"
+  // Supprimer les propriétés _id et _userId du book "book"
   delete bookObject._id;
   delete bookObject._userId;
 
+  const newFilename = `${req.file.filename.split('.')[0]}.webp`;
+
   // Créer une nouvelle instance de "object" avec les données fournies
-  const object = new Book({
+  const book = new Book({
     ...bookObject,
     userId: req.auth.userId,
-    imageUrl: `${req.protocol}://${req.get("host")}/images/${
-      req.file.filename
-    }`,
+    imageUrl: `${req.protocol}://${req.get('host')}/${req.file.destination}/modified_${newFilename}`
   });
 
   // Sauvegarder le nouvel objet "object" dans la base de données
-  object
+  book
     .save()
     .then(() => {
-      res.status(201).json({ message: "Objet enregistré !" });
+      res.status(201).json({ message: "Livre enregistré !" });
     })
     .catch((error) => {
       res.status(400).json({ error });
     });
 };
 
-// Fonction pour modifier un objet "object" existant
+// Fonction pour modifier un book "book" existant
 exports.modifyBook = (req, res, next) => {
-  // Vérifier si un fichier est inclus dans la requête et construire l'objet "object" en conséquence
-  const bookObject = req.file
+
+  const newFilename = `${req.file.filename.split('.')[0]}.webp`;
+
+  // Vérifier si un fichier est inclus dans la requête et construire l'objet "modifiedBook" en conséquence
+  let modifiedBook = req.file
     ? {
-        ...JSON.parse(req.body.object),
-        imageUrl: `${req.protocol}://${req.get("host")}/images/${
-          req.file.filename
-        }`,
+        ...JSON.parse(req.body.book),
+        imageUrl: `${req.protocol}://${req.get('host')}/${req.file.destination}/modified_${newFilename}`
       }
     : { ...req.body };
 
-  // Supprimer la propriété _userId de l'objet "object"
-  delete bookObject._userId;
+  // Supprimer la propriété _userId de l'objet "modifiedBook"
+  delete modifiedBook._userId;
 
-  // Trouver l'objet "object" existant par son ID
+  // Trouver l'objet "book" existant par son ID
   Book.findOne({ _id: req.params.id })
     .then((book) => {
-      // Vérifier si l'utilisateur authentifié est autorisé à modifier l'objet "object"
-      if (book.userId != req.auth.userId) {
-        res.status(401).json({ message: "Non autorisé" });
-      } else {
-        // Mettre à jour l'objet "object" existant avec les nouvelles données
-        Book.updateOne(
-          { _id: req.params.id },
-          { ...bookObject, _id: req.params.id }
-        )
-          .then(() => res.status(200).json({ message: "Objet modifié !" }))
-          .catch((error) => res.status(401).json({ error }));
+      // Vérifier si l'utilisateur authentifié est autorisé à modifier le livre
+      if (book.userId.toString() !== req.auth.userId) {
+        return res.status(401).json({ message: "Non autorisé" });
       }
+
+      // Mettre à jour le livre existant avec les nouvelles données
+      Book.updateOne({ _id: req.params.id}, {...modifiedBook, _id: req.params.id})
+        .then(() => {
+          res.status(200).json({ message: "Livre modifié !"});
+        })
+        .catch((error) => {
+          res.status(500).json({ error: error.message });
+        });
     })
     .catch((error) => {
-      res.status(400).json({ error });
+      res.status(400).json({ error: "Livre non trouvé" });
     });
 };
 
-// Fonction pour supprimer un objet "object"
+// Fonction pour supprimer un book "book"
 exports.deleteBook = (req, res, next) => {
-  // Trouver l'objet "object" à supprimer par son ID
+  // Trouver le book "Book" à supprimer par son ID
   Book.findOne({ _id: req.params.id })
     .then((book) => {
-      // Vérifier si l'utilisateur authentifié est autorisé à supprimer l'objet "object"
+      // Vérifier si l'utilisateur authentifié est autorisé à supprimer le book "book"
       if (book.userId != req.auth.userId) {
         res.status(401).json({ message: "Non autorisé" });
       } else {
         // Extraire le nom de fichier de l'imageUrl et supprimer le fichier correspondant du serveur
         const filename = book.imageUrl.split("/images/")[1];
         fs.unlink(`images/${filename}`, () => {
-          // Supprimer l'objet "object" de la base de données
+          // Supprimer l'image "images" de la base de données
           book
             .deleteOne({ _id: req.params.id })
             .then(() => {
@@ -104,9 +105,9 @@ exports.getOneBook = (req, res, next) => {
     .catch((error) => res.status(400).json({ error }));
 };
 
-// Fonction pour obtenir tous les objets "object"
+// Fonction pour obtenir tous les objets "Books"
 exports.getAllBooks = (req, res, next) => {
-  // Trouver tous les objets "object" dans la base de données et les renvoyer en réponse
+  // Trouver tous les objets "Books" dans la base de données et les renvoyer en réponse
   Book.find()
     .then((books) => res.status(200).json(books))
     .catch((error) => res.status(400).json({ error }));
@@ -118,12 +119,12 @@ exports.setRatingBook = (req, res, next) => {
       if (!book) {
         return res.status(404).json({ error: "Livre non trouvé !" });
       } else if (
-        book.ratings.includes((rating) => rating.userId == req.body.userId)
+        book.ratings.some((rating) => rating.userId == req.body.userId)
       ) {
         return res
           .status(400)
           .json({ error: "Vous avez déjà noté ce livre !" });
-      } else if (1 > req.body.rating > 5) {
+      } else if (req.body.rating < 1 || req.body.rating > 5) {
         return res
           .status(400)
           .json({ error: "La note doit être comprise entre 1 et 5 !" });
@@ -135,10 +136,9 @@ exports.setRatingBook = (req, res, next) => {
       }
 
       let sum = 0;
-
       let ratingCopy = [...book.ratings];
 
-      while (ratingCopy.length != 0) {
+      while (ratingCopy.length !== 0) {
         sum += ratingCopy.pop().grade;
       }
 
@@ -156,11 +156,10 @@ exports.setRatingBook = (req, res, next) => {
 
 exports.getBestRating = (req, res, next) => {
   Book.find()
-  .then((books) => {
-    books.sort((a, b) => b.averageRating - a.averageRating);
-    const top3 = books.slice(0, 3);
-    console.log
-    res.status(200).json(top3);
-  })
-  .catch((error) => res.status(400).json({ error }));
-}
+    .then((books) => {
+      books.sort((a, b) => b.averageRating - a.averageRating);
+      const top3 = books.slice(0, 3);
+      res.status(200).json(top3);
+    })
+    .catch((error) => res.status(400).json({ error }));
+};
