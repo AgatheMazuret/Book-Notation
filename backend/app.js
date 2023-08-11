@@ -37,6 +37,6 @@ app.use('/api/books', bookRoutes);
 app.use('/api/auth', userRoutes);
 
 // Servir les images statiques depuis le répertoire 'images'
-app.use('images', express.static(path.join(__dirname, 'images')));
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 module.exports = app; // Exporter l'application express pour pouvoir l'utiliser dans d'autres fichiers

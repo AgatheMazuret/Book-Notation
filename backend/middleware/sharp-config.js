@@ -6,8 +6,8 @@ module.exports = (req, res, next) => {
         const newFilename = `${req.file.filename.split('.')[0]}.webp`;
         const newPath = `${req.file.destination}/modified_${newFilename}`;
         sharp(`${req.file.destination}/${req.file.filename}`)
-        .resize(800, 600)
-        .webp({ quality: 80, force: true })
+        .resize(210, 265)
+        .webp({ quality: 100, force: true })
         .toFile(newPath, () => {
             fs.unlink(`${req.file.destination}/${req.file.filename}`, () => {
                 console.log('Image traitée');
