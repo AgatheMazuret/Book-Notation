@@ -32,48 +32,35 @@ exports.createBook = (req, res, next) => {
     });
 };
 
-const titi = require('fs');
-
 // Fonction pour modifier un book "book" existant
-// Fonction pour modifier l'image OU un champ spécifique d'un livre existant
-exports.modifyBookImageOrField = (req, res, next) => {
+exports.modifyBook = (req, res, next) => {
 
-  // Vérifier si un fichier d'image est inclus dans la requête
-  const isImageModification = req.file !== undefined;
+  // On crée un nouveau nom de fichier en changeant l'extension du fichier téléchargé en ".webp"
+  const newFilename = `${req.file.filename.split('.')[0]}.webp`;
 
-  // Vérifier si le champ que vous souhaitez modifier est inclus dans la demande
-  const isFieldModification = req.body.fieldName && req.body.newValue;
+  // On vérifie si un fichier est inclus dans la requête et on construit l'objet "modifiedBook" en conséquence
+  let modifiedBook = req.file
+    ? {
+        ...JSON.parse(req.body.book),
+        imageUrl: `${req.protocol}://${req.get('host')}/${req.file.destination}/modified_${newFilename}`
+      }
+    : { ...req.body };
 
-  if (!isImageModification && !isFieldModification) {
-    return res.status(400).json({ error: "Aucune modification d'image ou de champ spécifié" });
-  }
+  // On supprime une propriété "_userId" de l'objet "modifiedBook"
+  delete modifiedBook._userId;
 
-  // Trouver l'objet "book" existant par son ID
+  // On cherche l'objet "book" existant par son ID dans la base de données
   Book.findOne({ _id: req.params.id })
     .then((book) => {
-      // Vérifier si l'utilisateur authentifié est autorisé à modifier le livre
+      // On vérifie si l'utilisateur authentifié est autorisé à modifier le livre
       if (book.userId.toString() !== req.auth.userId) {
         return res.status(401).json({ message: "Non autorisé" });
       }
 
-      if (isImageModification) {
-        // Supprimer l'ancienne image du livre s'il y en a une
-        const oldImageFilePath = `${req.file.destination}/${book.imageUrl.split('/').pop()}`;
-        fs.unlinkSync(oldImageFilePath); // Suppression du fichier
-
-        // Mettre à jour l'URL de l'image dans le livre existant avec la nouvelle URL d'image
-        book.imageUrl = `${req.protocol}://${req.get('host')}/${req.file.destination}/${req.file.filename}`;
-      }
-
-      if (isFieldModification) {
-        // Mettre à jour le champ spécifié dans le livre existant
-        book[req.body.fieldName] = req.body.newValue;
-      }
-
-      // Enregistrer les modifications
-      book.save()
+      // Mettre à jour le livre existant avec les nouvelles données
+      Book.updateOne({ _id: req.params.id }, { ...modifiedBook, _id: req.params.id })
         .then(() => {
-          res.status(200).json({ message: "Modification effectuée sur le livre !" });
+          res.status(200).json({ message: "Livre modifié !" });
         })
         .catch((error) => {
           res.status(500).json({ error: error.message });
@@ -96,7 +83,7 @@ exports.deleteBook = (req, res, next) => {
       } else {
         // Extraire le nom de fichier de l'imageUrl et supprimer le fichier correspondant du serveur
         const filename = book.imageUrl.split("/images/")[1];
-        titi.unlink(`images/${filename}`, () => {
+        fs.unlink(`images/${filename}`, () => {
           // Supprimer l'image "images" de la base de données
           book
             .deleteOne({ _id: req.params.id })
