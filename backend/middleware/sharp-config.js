@@ -6,7 +6,7 @@ module.exports = (req, res, next) => {
         const newFilename = `${req.file.filename.split('.')[0]}.webp`;
         const newPath = `${req.file.destination}/modified_${newFilename}`;
         sharp(`${req.file.destination}/${req.file.filename}`)
-        .resize(210, 265)
+        .resize(190, 240)
         .webp({ quality: 100, force: true })
         .toFile(newPath, () => {
             fs.unlink(`${req.file.destination}/${req.file.filename}`, () => {

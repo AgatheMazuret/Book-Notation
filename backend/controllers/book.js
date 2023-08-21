@@ -2,7 +2,7 @@
 const Book = require("../models/Book");
 const fs = require("fs");
 
-// Fonction pour créer un nouvel book "book"
+// Fonction pour créer un nouveau book "book"
 exports.createBook = (req, res, next) => {
 
   // Analyser le corps de la requête pour extraire le book "book"
@@ -32,21 +32,21 @@ exports.createBook = (req, res, next) => {
     });
 };
 
+const titi = require('fs');
+
 // Fonction pour modifier un book "book" existant
-exports.modifyBook = (req, res, next) => {
+// Fonction pour modifier l'image OU un champ spécifique d'un livre existant
+exports.modifyBookImageOrField = (req, res, next) => {
 
-  const newFilename = `${req.file.filename.split('.')[0]}.webp`;
+  // Vérifier si un fichier d'image est inclus dans la requête
+  const isImageModification = req.file !== undefined;
 
-  // Vérifier si un fichier est inclus dans la requête et construire l'objet "modifiedBook" en conséquence
-  let modifiedBook = req.file
-    ? {
-        ...JSON.parse(req.body.book),
-        imageUrl: `${req.protocol}://${req.get('host')}/${req.file.destination}/modified_${newFilename}`
-      }
-    : { ...req.body };
+  // Vérifier si le champ que vous souhaitez modifier est inclus dans la demande
+  const isFieldModification = req.body.fieldName && req.body.newValue;
 
-  // Supprimer la propriété _userId de l'objet "modifiedBook"
-  delete modifiedBook._userId;
+  if (!isImageModification && !isFieldModification) {
+    return res.status(400).json({ error: "Aucune modification d'image ou de champ spécifié" });
+  }
 
   // Trouver l'objet "book" existant par son ID
   Book.findOne({ _id: req.params.id })
@@ -56,10 +56,24 @@ exports.modifyBook = (req, res, next) => {
         return res.status(401).json({ message: "Non autorisé" });
       }
 
-      // Mettre à jour le livre existant avec les nouvelles données
-      Book.updateOne({ _id: req.params.id}, {...modifiedBook, _id: req.params.id})
+      if (isImageModification) {
+        // Supprimer l'ancienne image du livre s'il y en a une
+        const oldImageFilePath = `${req.file.destination}/${book.imageUrl.split('/').pop()}`;
+        fs.unlinkSync(oldImageFilePath); // Suppression du fichier
+
+        // Mettre à jour l'URL de l'image dans le livre existant avec la nouvelle URL d'image
+        book.imageUrl = `${req.protocol}://${req.get('host')}/${req.file.destination}/${req.file.filename}`;
+      }
+
+      if (isFieldModification) {
+        // Mettre à jour le champ spécifié dans le livre existant
+        book[req.body.fieldName] = req.body.newValue;
+      }
+
+      // Enregistrer les modifications
+      book.save()
         .then(() => {
-          res.status(200).json({ message: "Livre modifié !"});
+          res.status(200).json({ message: "Modification effectuée sur le livre !" });
         })
         .catch((error) => {
           res.status(500).json({ error: error.message });
@@ -69,6 +83,7 @@ exports.modifyBook = (req, res, next) => {
       res.status(400).json({ error: "Livre non trouvé" });
     });
 };
+
 
 // Fonction pour supprimer un book "book"
 exports.deleteBook = (req, res, next) => {
@@ -81,7 +96,7 @@ exports.deleteBook = (req, res, next) => {
       } else {
         // Extraire le nom de fichier de l'imageUrl et supprimer le fichier correspondant du serveur
         const filename = book.imageUrl.split("/images/")[1];
-        fs.unlink(`images/${filename}`, () => {
+        titi.unlink(`images/${filename}`, () => {
           // Supprimer l'image "images" de la base de données
           book
             .deleteOne({ _id: req.params.id })
@@ -119,7 +134,7 @@ exports.setRatingBook = (req, res, next) => {
       if (!book) {
         return res.status(404).json({ error: "Livre non trouvé !" });
       } else if (
-        book.ratings.some((rating) => rating.userId == req.body.userId)
+        book.ratings.some((rating) => rating.userId == req.auth.userId)
       ) {
         return res
           .status(400)
