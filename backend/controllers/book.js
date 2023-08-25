@@ -68,7 +68,7 @@ exports.modifyBook = (req, res, next) => {
       )
         .then(() => {
           // Suppression de l'ancienne image du dossier "images" si elle existe
-          if (oldPhotoFileName) {
+          if (req.file) {
             const oldPhotoPath = `images/modified_${oldPhotoFileName}`;
             fs.unlink(oldPhotoPath, (err) => {
               if (err) {
@@ -138,17 +138,20 @@ exports.setRatingBook = (req, res, next) => {
   Book.findOne({ _id: req.params.id })
     .then((book) => {
       if (!book) {
-        return res.status(404).json({ error: "Livre non trouvé !" });
+        //return res.status(404).json({ error: "Livre non trouvé !" });
+        throw {message :"Livre non trouvé !" }
       } else if (
         book.ratings.some((rating) => rating.userId == req.auth.userId)
       ) {
-        return res
-          .status(400)
-          .json({ error: "Vous avez déjà noté ce livre !" });
+        // return res
+        //   .status(400)
+        //   .json({ error: "Vous avez déjà noté ce livre !" });
+          throw {message : "Vous avez déjà noté ce livre!"}
       } else if (req.body.rating < 1 || req.body.rating > 5) {
-        return res
-          .status(400)
-          .json({ error: "La note doit être comprise entre 1 et 5 !" });
+        // return res
+        //   .status(400)
+        //   .json({ error: "La note doit être comprise entre 1 et 5 !" });
+        throw {message : "La note doit être comprise entre 1 et 5 !"}
       } else {
         book.ratings.push({
           userId: req.body.userId,
