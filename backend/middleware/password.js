@@ -16,6 +16,6 @@ module.exports = (req, res, next) =>{
     if(schema.validate(req.body.password)){
         next()
     }else{
-        return res.status(400).json({ error: 'Invalid password'})
+        return res.status(400).json({ error: 'E-mail ou mot de passe incorrect'})
     }
 }
